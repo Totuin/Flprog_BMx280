@@ -31,6 +31,11 @@
 #define FLPROG_BMX280_READ_PRESSURE_STEP 11
 #define FLPROG_BMX280_READ_HUMIDITI_STEP 12
 
+#define FLPROG_BMX280_READ_TEMP_RAW_ERROR 100
+#define FLPROG_BMX280_READ_PERSS_RAW_ERROR 101
+#define FLPROG_BMX280_CONVERT_PERSS_RAW_ERROR 102
+#define FLPROG_BMX280_READ_HUM_RAW_ERROR 103
+
 class FLProgBMx280 : public FLProgI2cStepWorkSensor
 {
 public:
@@ -45,6 +50,7 @@ public:
     void setHumOversampling(uint8_t mode);
     void setTempOversampling(uint8_t mode);
     void setPressOversampling(uint8_t mode);
+    bool isBME280() { return deviceIsBME280; };
 
 protected:
     virtual void readSensor();
@@ -60,6 +66,7 @@ protected:
     float humidity;
     float pressure;
     bool isInit = false;
+    bool deviceIsBME280 = false;
     int32_t temp_raw;
     uint8_t operating_mode = FLPROG_BMX280_NORMAL_MODE;
     uint8_t standby_time = FLPROG_BMX280_STANDBY_250MS;

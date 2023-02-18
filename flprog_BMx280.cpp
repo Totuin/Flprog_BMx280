@@ -8,26 +8,40 @@ FLProgBMx280::FLProgBMx280(FLProgI2C *device, uint8_t i2cAddress)
 
 void FLProgBMx280::createError()
 {
-    isInit = false;
+    if (codeError < 100)
+    {
+        isInit = false;
+    }
     gotoStepWithDelay(FLPROG_SENSOR_WAITING_READ_STEP, 500);
 }
 
 void FLProgBMx280::readSensor()
 {
-    if (!isInit)
+    if (isInit)
+    {
+
+        readTemperature();
+    }
+    else
     {
         initDevice();
+
+        if (codeError)
+        {
+            createError();
+            return;
+        }
     }
-    if (codeError)
-    {
-        createError();
-        return;
-    }
-    readTemperature();
 }
 
 void FLProgBMx280::initDevice()
 {
+    if (!(i2cDevice->findAddr(addres)))
+    {
+        codeError = FLPROG_SENSOR_DEVICE_NOT_FOUND_ERROR;
+        createError();
+        return;
+    }
     uint8_t data[2] = {0x0E, 0xB6};
     codeError = i2cDevice->fullWrite(addres, data, 2);
     if (codeError)
@@ -35,14 +49,12 @@ void FLProgBMx280::initDevice()
         createError();
         return;
     }
-    gotoStepWithDelay(FLPROG_BMX280_INIT_DEVICE_STEP1, 10);
+    gotoStepWithDelay(FLPROG_BMX280_INIT_DEVICE_STEP1, 20);
 }
 
 void FLProgBMx280::initDeviceStep1()
 {
-
     uint8_t data[25];
-
     codeError = i2cDevice->fullWrite(addres, 0xD0);
     if (codeError)
     {
@@ -62,14 +74,13 @@ void FLProgBMx280::initDeviceStep1()
         createError();
         return;
     }
-
+    deviceIsBME280 = (data[0] == 0x60);
     codeError = i2cDevice->fullWrite(addres, 0x88);
     if (codeError)
     {
         createError();
         return;
     }
-
     codeError = i2cDevice->fullRead(addres, data, 25);
     if (codeError)
     {
@@ -129,13 +140,16 @@ void FLProgBMx280::initDeviceStep1()
     data[1] = data[0];
     data[0] = 0xF2;
     codeError = i2cDevice->fullWrite(addres, data, 2);
+    if (codeError)
     {
+        Serial.println(codeError);
         createError();
         return;
     }
     data[0] = 0xF4;
     data[1] = (temp_oversampl << 5) | (press_oversampl << 2) | operating_mode;
     codeError = i2cDevice->fullWrite(addres, data, 2);
+    if (codeError)
     {
         createError();
         return;
@@ -143,6 +157,7 @@ void FLProgBMx280::initDeviceStep1()
     data[0] = 0xF5;
     data[1] = (standby_time << 5) | (filter_coef << 2);
     codeError = i2cDevice->fullWrite(addres, data, 2);
+    if (codeError)
     {
         createError();
         return;
@@ -185,7 +200,7 @@ uint32_t FLProgBMx280::readRegister24(uint8_t reg)
     {
         return 0;
     }
-    return = (((uint32_t)data[0] << 16) | ((uint32_t)data[1] << 8) | (uint32_t)data[2]);
+    return (((uint32_t)data[0] << 16) | ((uint32_t)data[1] << 8) | (uint32_t)data[2]);
 }
 
 int32_t FLProgBMx280::readTempInt()
@@ -196,7 +211,10 @@ int32_t FLProgBMx280::readTempInt()
         return 0;
     }
     if (temp_raw == 0x800000)
-        return 0; // If the temperature module has been disabled return '0'
+    {
+        codeError = FLPROG_BMX280_READ_TEMP_RAW_ERROR;
+        return 0;
+    }
 
     temp_raw >>= 4; // Start temperature reading in integers
     int32_t value_1 = ((((temp_raw >> 3) - ((int32_t)CalibrationData._T1 << 1))) *
@@ -212,7 +230,7 @@ int32_t FLProgBMx280::readTempInt()
 }
 
 void FLProgBMx280::readTemperature()
-{
+{ 
     temp_raw = readTempInt();
     if (codeError)
     {
@@ -234,7 +252,9 @@ void FLProgBMx280::readPressure()
     }
     if (press_raw == 0x800000)
     {
-        return:
+        codeError = FLPROG_BMX280_READ_PERSS_RAW_ERROR;
+        createError();
+        return;
     }
     press_raw >>= 4;
     int64_t value_1 = ((int64_t)readTempInt()) - 128000;
@@ -246,6 +266,8 @@ void FLProgBMx280::readPressure()
     if (!value_1)
     {
         return;
+        codeError = FLPROG_BMX280_CONVERT_PERSS_RAW_ERROR;
+        createError();
     }
     int64_t p = 1048576 - press_raw;
     p = (((p << 31) - value_2) * 3125) / value_1;
@@ -258,43 +280,49 @@ void FLProgBMx280::readPressure()
 
 void FLProgBMx280::readHumidity()
 {
-    codeError = i2cDevice->fullWrite(addres, 0xFD);
-    if (codeError)
+    if (deviceIsBME280)
     {
-        createError();
-        return;
+        codeError = i2cDevice->fullWrite(addres, 0xFD);
+        if (codeError)
+        {
+            createError();
+            return;
+        }
+        uint8_t data[2];
+        codeError = i2cDevice->fullRead(addres, data, 2);
+        if (codeError)
+        {
+
+            createError();
+            return 0;
+        }
+        int32_t hum_raw = ((uint16_t)data[0] << 8) | (uint16_t)data[1];
+        if (hum_raw == 0x8000)
+        {
+            codeError = FLPROG_BMX280_READ_HUM_RAW_ERROR;
+            createError();
+            return;
+        }
+        int32_t value = (temp_raw - ((int32_t)76800));
+        value = (((((hum_raw << 14) - (((int32_t)CalibrationData._H4) << 20) -
+                    (((int32_t)CalibrationData._H5) * value)) +
+                   ((int32_t)16384)) >>
+                  15) *
+                 (((((((value * ((int32_t)CalibrationData._H6)) >> 10) * (((value *
+                                                                            ((int32_t)CalibrationData._H3)) >>
+                                                                           11) +
+                                                                          ((int32_t)32768))) >>
+                     10) +
+                    ((int32_t)2097152)) *
+                       ((int32_t)CalibrationData._H2) +
+                   8192) >>
+                  14));
+        value = (value - (((((value >> 15) * (value >> 15)) >> 7) * ((int32_t)CalibrationData._H1)) >> 4));
+        value = (value < 0) ? 0 : value;
+        value = (value > 419430400) ? 419430400 : value;
+        float h = (value >> 12);
+        humidity = h / 1024.0;
     }
-    uint8_t data[2];
-    codeError = i2cDevice->fullRead(addres, data, 2);
-    if (codeError)
-    {
-        createError();
-        return 0;
-    }
-    int32_t hum_raw = ((uint16_t)data[0] << 8) | (uint16_t)data[1];
-    if (hum_raw == 0x8000)
-    {
-        return;
-    }
-    int32_t value = (temp_raw - ((int32_t)76800));
-    value = (((((hum_raw << 14) - (((int32_t)CalibrationData._H4) << 20) -
-                (((int32_t)CalibrationData._H5) * value)) +
-               ((int32_t)16384)) >>
-              15) *
-             (((((((value * ((int32_t)CalibrationData._H6)) >> 10) * (((value *
-                                                                        ((int32_t)CalibrationData._H3)) >>
-                                                                       11) +
-                                                                      ((int32_t)32768))) >>
-                 10) +
-                ((int32_t)2097152)) *
-                   ((int32_t)CalibrationData._H2) +
-               8192) >>
-              14));
-    value = (value - (((((value >> 15) * (value >> 15)) >> 7) * ((int32_t)CalibrationData._H1)) >> 4));
-    value = (value < 0) ? 0 : value;
-    value = (value > 419430400) ? 419430400 : value;
-    float h = (value >> 12);
-    humidity = h / 1024.0;
     step = FLPROG_SENSOR_WAITING_READ_STEP;
 }
 
