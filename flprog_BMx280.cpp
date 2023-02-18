@@ -300,36 +300,60 @@ void FLProgBMx280::readHumidity()
 
 void FLProgBMx280::setMode(uint8_t mode)
 {
+    if (operating_mode == mode)
+    {
+        return;
+    }
     operating_mode = mode;
     isInit = false;
 }
 
 void FLProgBMx280::setFilter(uint8_t mode)
 {
+    if (filter_coef == mode)
+    {
+        return;
+    }
     filter_coef = mode;
     isInit = false;
 }
 
 void FLProgBMx280::setStandbyTime(uint8_t mode)
 {
+    if (standby_time == mode)
+    {
+        return;
+    }
     standby_time = mode;
     isInit = false;
 }
 
 void FLProgBMx280::setHumOversampling(uint8_t mode)
 {
+    if (hum_oversampl == mode)
+    {
+        return;
+    }
     hum_oversampl = mode;
     isInit = false;
 }
 
 void FLProgBMx280::setTempOversampling(uint8_t mode)
 {
+    if (temp_oversampl == mode)
+    {
+        return;
+    }
     temp_oversampl = mode;
     isInit = false;
 }
 
 void FLProgBMx280::setPressOversampling(uint8_t mode)
 {
+    if (press_oversampl == mode)
+    {
+        return;
+    }
     press_oversampl = mode;
     isInit = false;
 }
