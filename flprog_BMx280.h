@@ -1,6 +1,7 @@
 #pragma once
 #include "Arduino.h"
 #include "flprogUtilites.h"
+#include "flprogI2C.h"
 
 #define FLPROG_BMX280_NORMAL_MODE 0x03
 #define FLPROG_BMX280_FORCED_MODE 0x02
