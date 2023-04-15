@@ -1,6 +1,6 @@
 #include "flprog_BMx280.h"
 
-FLProgBMx280::FLProgBMx280(FLProgI2C *device, uint8_t i2cAddress)
+FLProgBMx280::FLProgBMx280(AbstractFLProgI2C *device, uint8_t i2cAddress)
 {
     i2cDevice = device;
     addres = i2cAddress;

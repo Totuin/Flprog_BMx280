@@ -40,7 +40,7 @@
 class FLProgBMx280 : public FLProgI2cStepWorkSensor
 {
 public:
-    FLProgBMx280(FLProgI2C *device, uint8_t i2cAddress = 0x76);
+    FLProgBMx280(AbstractFLProgI2C *device, uint8_t i2cAddress = 0x76);
     void pool();
     float getTemperature() { return temperature; };
     float getHumidity() { return humidity; };
